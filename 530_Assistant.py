@@ -152,7 +152,7 @@ def AtollMacro_K(printed=True):
 def AtollMacro_p0():
     # eps_p
     ppt = Get_Selected_Link_Properties()
-    print("Don't forget to fill Altitudes.txt file from Profile Values")
+    print("Don't forget to fill Altitudes.txt file with Profile Values")
     file = open(os.path.join(path, "530-18_calculated_values\\Altitudes.txt"), 'r')
     content = file.readlines()
     file.close()
