@@ -51,7 +51,7 @@ def Get_Selected_Link_Properties():
     else:
         TX_Table = win32com.client.dynamic.Dispatch(doc.GetRecords("MWLinks", True))
         nrow = TX_Table.FindPrimaryKey(link.Name)
-        row = TX_Table.GetValues([nrow], list(range(1, TX_Table.ColumnCount + 1)))
+        row = TX_Table.GetValues([nrow], list(range(1, TX_Table.ColumnCount + 10)))
         dico = {}
         for i in range(1, len(row[0]) - 3):
             dico[row[0][i]] = row[1][i]
@@ -130,14 +130,53 @@ def bilinear_interpolation(lat, lon, lon_lat, values):
     return linear_interpolation(lat, lon_lat[1], tmp)
 
 
-def AtollMacro_K():
+def get_calculated_value_bilin_interp(file):
     ppt = Get_Selected_Link_Properties()
     lon = (ppt["ABS_X_A"] + ppt["ABS_X_B"]) / 2
     lat = (ppt["ABS_Y_A"] + ppt["ABS_Y_B"]) / 2
     lon_lat, values = find_4_closest_MW_Calculated_Value(
-        "\\\sisyphe\\TestsStorage\\Tests_Atoll\\Traitements\MW\\Feuilles de calculs SMath\\530 - Interruptions dues à la pluie et aux multi-trajets\\530-18_calculated_values\\LogK_merged.csv",
-        lat, lon)
-    print("K = " + str(10**bilinear_interpolation(lat, lon, lon_lat, values)))
+        file, lat, lon)
+    return bilinear_interpolation(lat, lon, lon_lat, values)
+
+
+def AtollMacro_K(printed=True):
+    ppt = Get_Selected_Link_Properties()
+    lon = (ppt["ABS_X_A"] + ppt["ABS_X_B"]) / 2
+    lat = (ppt["ABS_Y_A"] + ppt["ABS_Y_B"]) / 2
+    res = get_calculated_value_bilin_interp(os.path.join(path, "530-18_calculated_values\\LogK_merged.csv"))
+    if printed:
+        print("K = " + str(10**res))
+    return 10**res
+
+
+def AtollMacro_p0():
+    # eps_p
+    ppt = Get_Selected_Link_Properties()
+    print("Don't forget to fill Altitudes.txt file from Profile Values")
+    file = open(os.path.join(path, "530-18_calculated_values\\Altitudes.txt"), 'r')
+    content = file.readlines()
+    file.close()
+    dN75 = get_calculated_value_bilin_interp(os.path.join(path, "530-18_calculated_values\\dN75_merged.csv"))
+    h_t = 0
+    d = ppt["LINK_LENGTH"] / 1000
+    h_e = float(content[0]) + ppt["HEIGHT_A"]
+    h_r = float(content[-1]) + ppt["HEIGHT_B"]
+    h_L = min(h_e, h_r)
+    # (5)
+    eps_p = np.abs(h_r - h_e) / d
+    f = ppt["FREQ_A"] / 1000
+    for r in content:
+        h_t += float(r.replace("\n", ""))
+    h_t /= len(content)
+    # (6)
+    h_c = (h_e + h_r) / 2 - d**2 / 102 - h_t
+    # (8), (9)
+    v_sr = min((dN75 / 50)**1.8 * np.exp(-(h_c / (2.5 * np.sqrt(d)))), dN75 * d**1.5 * f**0.5 / 24730)
+    # (11)
+    p0 = AtollMacro_K(False) * d**3.51 * (f**2 + 13)**0.447 * 10**(-0.376 * np.tanh((h_c - 147) / 125) - 0.334 * eps_p **
+                                                                   0.39 - 0.00027 * h_L + 17.85 * v_sr)
+    print(f"p0 : {p0}%")
+    return p0
 
 
 def AtollMacro_Print_Selected_Link_Properties():
@@ -145,12 +184,5 @@ def AtollMacro_Print_Selected_Link_Properties():
     print(Get_Selected_Link_Properties())
 
 
-lon = -6.1806828726247485
-lat = 53.288487911977015
-lon_lat, values = find_4_closest_MW_Calculated_Value(
-    "\\\sisyphe\\TestsStorage\\Tests_Atoll\\Traitements\MW\\Feuilles de calculs SMath\\530 - Interruptions dues à la pluie et aux multi-trajets\\530-18_calculated_values\\LogK_merged.csv",
-    lat, lon)
-
-K = 10**bilinear_interpolation(lat, lon, lon_lat, values)
-
-print(K)
+lon = -61.593341667
+lat = 16.225
